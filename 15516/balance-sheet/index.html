@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>15.516 — Balance Sheet Simulator</title>
+<style>
+  :root{ --ink:#1f2d3d; --muted:#6b7a8d; --line:#dbe2ea; --bg:#f4f7fb; }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;
+       color:var(--ink);background:var(--bg);padding:24px;}
+  h1{font-size:20px;margin:0 0 2px}
+  .sub{color:var(--muted);font-size:13px;margin-bottom:20px}
+  .wrap{display:grid;grid-template-columns:340px 1fr;gap:24px;align-items:start}
+  @media(max-width:900px){.wrap{grid-template-columns:1fr}}
+  .card{background:#fff;border:1px solid var(--line);border-radius:12px;padding:18px;
+        box-shadow:0 1px 3px rgba(0,0,0,.04)}
+  label{display:block;font-size:12px;font-weight:600;color:var(--muted);
+        text-transform:uppercase;letter-spacing:.03em;margin:14px 0 5px}
+  select,input,button{width:100%;padding:10px 12px;font-size:15px;border:1px solid var(--line);
+        border-radius:8px;background:#fff;color:var(--ink)}
+  button{background:var(--ink);color:#fff;border:none;font-weight:600;cursor:pointer;margin-top:18px}
+  button:hover{opacity:.92}
+  .btn-secondary{background:#eef2f7;color:var(--ink);margin-top:8px}
+  .desc{font-size:12px;color:var(--muted);margin-top:8px;min-height:32px;line-height:1.4}
+
+  /* equation bars */
+  .equation{display:grid;grid-template-columns:1fr 40px 1fr;gap:0;align-items:end;margin-top:8px}
+  .eqsign{font-size:26px;font-weight:700;color:var(--muted);text-align:center;padding-bottom:190px}
+  .col{display:flex;flex-direction:column;justify-content:flex-end;gap:3px;height:420px}
+  .coltitle{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.03em;
+            color:var(--muted);text-align:center;margin-bottom:6px;height:16px}
+  .seg{border-radius:6px;color:#fff;display:flex;flex-direction:column;justify-content:center;
+       padding:4px 8px;overflow:hidden;transition:height .35s ease;min-height:0;
+       box-shadow:inset 0 0 0 1px rgba(255,255,255,.25)}
+  .seg .n{font-size:12px;font-weight:600;line-height:1.1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-shadow:0 1px 1px rgba(0,0,0,.25)}
+  .seg .v{font-size:11px;opacity:.95;text-shadow:0 1px 1px rgba(0,0,0,.25)}
+  .seg.deficit{background-image:repeating-linear-gradient(45deg,rgba(0,0,0,.18) 0 6px,transparent 6px 12px)}
+  .grouplbl{font-size:9.5px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;
+            color:var(--muted);margin:2px 0 1px;text-align:center}
+  .totrow{display:flex;justify-content:space-between;font-weight:700;font-size:14px;
+          border-top:2px solid var(--ink);margin-top:6px;padding-top:6px}
+  .balance-tag{display:inline-block;font-size:12px;font-weight:700;padding:4px 10px;border-radius:20px;margin-left:8px}
+  .ok{background:#e7f7ee;color:#1e7d4b}
+  .bad{background:#fdecea;color:#b0281a}
+
+  /* mini income statement */
+  .is{font-size:13px;margin-top:6px}
+  .is div{display:flex;justify-content:space-between;padding:4px 2px;border-bottom:1px dashed var(--line)}
+  .is .rev span:last-child{color:#1e7d4b;font-weight:600}
+  .is .exp span:last-child{color:#b0281a;font-weight:600}
+  .is .ni{font-weight:700;border-bottom:2px solid var(--ink)}
+  .is .re{font-weight:700;border-bottom:none;background:#eafaf1;border-radius:6px;padding:6px 8px;margin-top:4px}
+
+  table{width:100%;border-collapse:collapse;font-size:12px;margin-top:8px}
+  th,td{padding:6px 8px;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap}
+  th:first-child,td:first-child,th:nth-child(2),td:nth-child(2){text-align:left}
+  th{color:var(--muted);text-transform:uppercase;font-size:10px;letter-spacing:.02em}
+  td.pos{color:#1e7d4b}td.neg{color:#b0281a}
+  .empty{color:var(--muted);font-style:italic;padding:16px 0;text-align:center}
+  .legend{display:flex;gap:14px;font-size:11.5px;color:var(--muted);margin-top:14px;flex-wrap:wrap}
+  .dot{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:5px;vertical-align:middle}
+</style>
+</head>
+<body>
+<h1>Balance Sheet Simulator <span class="sub" style="font-weight:400">· 15.516 Financial Accounting</span></h1>
+<div class="sub">Pick a transaction, enter an amount, and watch the balance sheet re-balance. Assets always equal Liabilities + Equity.</div>
+
+<div class="wrap">
+  <!-- CONTROLS -->
+  <div class="card">
+    <label for="txn">Transaction</label>
+    <select id="txn"></select>
+    <div class="desc" id="desc"></div>
+
+    <label for="amt">Amount ($)</label>
+    <input id="amt" type="number" min="0" step="100" placeholder="e.g. 5000" value="5000">
+
+    <button id="post">Post transaction</button>
+    <button id="undo" class="btn-secondary">Undo last</button>
+    <button id="reset" class="btn-secondary">Reset all</button>
+
+    <div class="legend" id="legend"></div>
+  </div>
+
+  <!-- VISUAL + LOG -->
+  <div style="display:flex;flex-direction:column;gap:24px">
+    <div class="card">
+      <div style="display:flex;align-items:center;justify-content:space-between">
+        <strong>Balance Sheet</strong>
+        <span id="baltag" class="balance-tag ok">In balance ✓</span>
+      </div>
+      <div class="equation">
+        <div>
+          <div class="coltitle">Assets</div>
+          <div class="col" id="assetCol"></div>
+          <div class="totrow"><span>Total Assets</span><span id="totA">$0</span></div>
+        </div>
+        <div class="eqsign">=</div>
+        <div>
+          <div class="coltitle">Liabilities + Equity</div>
+          <div class="col" id="leCol"></div>
+          <div class="totrow"><span>Total L + E</span><span id="totLE">$0</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <strong>Retained Earnings detail</strong>
+      <div class="sub" style="margin:2px 0 0">How the green Retained Earnings box was built this period.</div>
+      <div class="is" id="istmt"></div>
+    </div>
+
+    <div class="card">
+      <strong>Transaction log (Balance Sheet Equation)</strong>
+      <div id="logWrap"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ---- accounts: ordered light→dark within each category ----
+const ACCOUNTS = {
+  // ASSETS — shades of blue, most liquid (light) to least liquid (dark)
+  cash:        {label:"Cash",                side:"asset",  group:"Current assets",    color:"#aed6f1"},
+  ar:          {label:"Accounts Receivable", side:"asset",  group:"Current assets",    color:"#5dade2"},
+  inventory:   {label:"Inventory",           side:"asset",  group:"Current assets",    color:"#2e86c1"},
+  ppe:         {label:"Equipment (PP&E)",    side:"asset",  group:"Long-term assets",  color:"#1b4f72"},
+  // LIABILITIES — shades of red, current (light) to long-term (dark)
+  ap:          {label:"Accounts Payable",    side:"liab",   group:"Current liab.",     color:"#f5b7b1"},
+  wagesPayable:{label:"Wages Payable",       side:"liab",   group:"Current liab.",     color:"#e6796b"},
+  loan:        {label:"Bank Loan",           side:"liab",   group:"Long-term liab.",   color:"#a93226"},
+  // EQUITY — two clean greens
+  contributedCapital:{label:"Contributed Capital", side:"equity", group:"Equity", color:"#1e8449"},
+  retainedEarnings:  {label:"Retained Earnings",   side:"equity", group:"Equity", color:"#58d68d", derived:true},
+};
+
+// ---- preset transactions ----
+const TXNS = [
+  {id:"issue", name:"Issue stock for cash",
+   desc:"Owners invest cash. Cash ↑ and Contributed Capital ↑.",
+   f:a=>({cash:+a, contributedCapital:+a})},
+  {id:"loan", name:"Borrow cash from bank",
+   desc:"Take a long-term loan. Cash ↑ and Bank Loan ↑.",
+   f:a=>({cash:+a, loan:+a})},
+  {id:"buyEquipCash", name:"Buy equipment with cash",
+   desc:"Swap one asset for another. Equipment ↑, Cash ↓ — total assets unchanged.",
+   f:a=>({ppe:+a, cash:-a})},
+  {id:"buyInvCredit", name:"Buy inventory on credit",
+   desc:"Purchase inventory on account. Inventory ↑ and Accounts Payable ↑.",
+   f:a=>({inventory:+a, ap:+a})},
+  {id:"payAP", name:"Pay a supplier (settle A/P)",
+   desc:"Pay cash owed. Cash ↓ and Accounts Payable ↓.",
+   f:a=>({cash:-a, ap:-a})},
+  {id:"revCash", name:"Provide service for cash  (Revenue)",
+   desc:"Earn revenue in cash. Cash ↑ and Revenue ↑ → lifts Retained Earnings.",
+   f:a=>({cash:+a, revenue:+a})},
+  {id:"revCredit", name:"Provide service on credit  (Revenue)",
+   desc:"Earn revenue, bill the customer. A/R ↑ and Revenue ↑ → lifts Retained Earnings.",
+   f:a=>({ar:+a, revenue:+a})},
+  {id:"collectAR", name:"Collect from a customer (A/R)",
+   desc:"Customer pays their bill. Cash ↑, A/R ↓ — total assets unchanged.",
+   f:a=>({cash:+a, ar:-a})},
+  {id:"cogs", name:"Deliver goods / record COGS  (Expense)",
+   desc:"Inventory used up as an expense. Inventory ↓ and Expense ↑ → lowers Retained Earnings.",
+   f:a=>({inventory:-a, expense:+a})},
+  {id:"payWagesCash", name:"Pay wages in cash  (Expense)",
+   desc:"Wage expense paid now. Cash ↓ and Expense ↑ → lowers Retained Earnings.",
+   f:a=>({cash:-a, expense:+a})},
+  {id:"accrueWages", name:"Accrue wages owed  (Expense)",
+   desc:"Wage expense not yet paid. Wages Payable ↑ and Expense ↑ → lowers Retained Earnings.",
+   f:a=>({wagesPayable:+a, expense:+a})},
+  {id:"payDividend", name:"Pay a cash dividend",
+   desc:"Distribute cash to owners (not an expense). Cash ↓ and Dividends ↑ → lowers Retained Earnings.",
+   f:a=>({cash:-a, dividends:+a})},
+  {id:"repayLoan", name:"Repay bank loan principal",
+   desc:"Pay down debt. Cash ↓ and Bank Loan ↓.",
+   f:a=>({cash:-a, loan:-a})},
+];
+
+// balance-sheet accounts we store directly + income sub-accounts
+const STORED = ["cash","ar","inventory","ppe","ap","wagesPayable","loan","contributedCapital","revenue","expense","dividends"];
+
+let balances={}, history=[];
+function zero(){const o={};STORED.forEach(k=>o[k]=0);return o;}
+function init(){balances=zero();history=[];render();}
+const fmt = n => (n<0?"-":"")+"$"+Math.abs(Math.round(n)).toLocaleString();
+
+// retained earnings is derived
+const RE = () => balances.revenue - balances.expense - balances.dividends;
+function getBal(k){ return k==="retainedEarnings" ? RE() : balances[k]; }
+
+// dropdown + legend
+const sel=document.getElementById("txn");
+TXNS.forEach(t=>{const o=document.createElement("option");o.value=t.id;o.textContent=t.name;sel.appendChild(o);});
+const descEl=document.getElementById("desc");
+function showDesc(){descEl.textContent=TXNS.find(t=>t.id===sel.value).desc;}
+sel.addEventListener("change",showDesc); showDesc();
+document.getElementById("legend").innerHTML =
+  [["Assets","#2e86c1"],["Liabilities","#c0392b"],["Equity","#1e8449"]]
+  .map(([t,c])=>`<span><span class="dot" style="background:${c}"></span>${t}</span>`).join("");
+
+// actions
+document.getElementById("post").addEventListener("click",()=>{
+  const amt=parseFloat(document.getElementById("amt").value);
+  if(!(amt>0)){alert("Enter a positive amount.");return;}
+  const t=TXNS.find(x=>x.id===sel.value);
+  const d=t.f(amt);
+  for(const k in d) balances[k]+=d[k];
+  history.push({name:t.name, deltas:{...d}});
+  render();
+});
+document.getElementById("undo").addEventListener("click",()=>{
+  const last=history.pop(); if(!last)return;
+  for(const k in last.deltas) balances[k]-=last.deltas[k];
+  render();
+});
+document.getElementById("reset").addEventListener("click",()=>{if(confirm("Clear all transactions?"))init();});
+
+// ---- render ----
+function render(){
+  const assets=Object.keys(ACCOUNTS).filter(k=>ACCOUNTS[k].side==="asset");
+  const liabs =Object.keys(ACCOUNTS).filter(k=>ACCOUNTS[k].side==="liab");
+  const equity=Object.keys(ACCOUNTS).filter(k=>ACCOUNTS[k].side==="equity");
+  const totA =assets.reduce((s,k)=>s+getBal(k),0);
+  const totL =liabs.reduce((s,k)=>s+getBal(k),0);
+  const totE =equity.reduce((s,k)=>s+getBal(k),0);
+  const totLE=totL+totE;
+  const scale=Math.max(totA,totLE,1), H=400;
+
+  const seg=(k)=>{
+    const v=getBal(k); if(Math.abs(v)<0.5)return "";
+    const a=ACCOUNTS[k];
+    const h=Math.max((Math.abs(v)/scale)*H,18);
+    const def = v<0 ? " deficit":"";
+    return `<div class="seg${def}" style="height:${h}px;background:${a.color}" title="${a.label}: ${fmt(v)}">
+      <span class="n">${a.label}</span><span class="v">${fmt(v)}${v<0?" (deficit)":""}</span></div>`;
+  };
+  // grouped rendering with small group labels
+  const renderCol = keys => {
+    let html="", lastGroup=null;
+    keys.forEach(k=>{
+      if(Math.abs(getBal(k))<0.5) return;
+      if(ACCOUNTS[k].group!==lastGroup){ html+=`<div class="grouplbl">${ACCOUNTS[k].group}</div>`; lastGroup=ACCOUNTS[k].group; }
+      html+=seg(k);
+    });
+    return html || `<div class="seg" style="height:18px;background:#c9d4e0"></div>`;
+  };
+  document.getElementById("assetCol").innerHTML = renderCol(assets);
+  document.getElementById("leCol").innerHTML     = renderCol([...liabs,...equity]);
+  document.getElementById("totA").textContent  = fmt(totA);
+  document.getElementById("totLE").textContent = fmt(totLE);
+
+  const tag=document.getElementById("baltag");
+  if(Math.abs(totA-totLE)<0.5){tag.className="balance-tag ok";tag.textContent="In balance ✓";}
+  else{tag.className="balance-tag bad";tag.textContent="Off by "+fmt(totA-totLE);}
+
+  // mini income statement → retained earnings
+  const rev=balances.revenue, exp=balances.expense, div=balances.dividends, ni=rev-exp;
+  document.getElementById("istmt").innerHTML =
+    `<div class="rev"><span>Revenue</span><span>${fmt(rev)}</span></div>
+     <div class="exp"><span>Less: Expenses</span><span>(${fmt(exp).replace('$','$')})</span></div>
+     <div class="ni"><span>Net income</span><span>${fmt(ni)}</span></div>
+     <div class="exp"><span>Less: Dividends</span><span>(${fmt(div)})</span></div>
+     <div class="re"><span>Retained Earnings</span><span>${fmt(RE())}</span></div>`;
+
+  renderLog(assets,liabs,equity);
+}
+
+function renderLog(assets,liabs,equity){
+  const order=[...assets,...liabs,...equity]; // includes retainedEarnings (derived)
+  const reDelta = d => (d.revenue||0)-(d.expense||0)-(d.dividends||0);
+  const wrap=document.getElementById("logWrap");
+  if(history.length===0){wrap.innerHTML=`<div class="empty">No transactions yet — post one to begin.</div>`;return;}
+  const cell=v=> v?`<td class="${v>0?'pos':'neg'}">${(v>0?'+':'')+fmt(v)}</td>`:`<td></td>`;
+  const head=`<tr><th>#</th><th>Transaction</th>`+order.map(k=>`<th>${ACCOUNTS[k].label}</th>`).join("")+`</tr>`;
+  const rows=history.map((h,i)=>`<tr><td>${i+1}</td><td>${h.name}</td>`+
+      order.map(k=> cell(k==="retainedEarnings"?reDelta(h.deltas):(h.deltas[k]||0))).join("")+`</tr>`).join("");
+  const bal=`<tr style="font-weight:700;border-top:2px solid var(--ink)"><td></td><td>Balance</td>`+
+      order.map(k=>`<td>${getBal(k)?fmt(getBal(k)):''}</td>`).join("")+`</tr>`;
+  wrap.innerHTML=`<div style="overflow-x:auto"><table>${head}${rows}${bal}</table></div>`;
+}
+
+init();
+</script>
+</body>
+</html>

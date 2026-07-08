@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Advait Ganapathy — Teaching</title>
+<style>
+  :root{--ink:#1f2d3d;--muted:#6b7a8d;--line:#e2e8f0;--bg:#f7f9fc;--accent:#2e75b6;}
+  *{box-sizing:border-box}
+  body{margin:0;font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;
+       color:var(--ink);background:var(--bg);line-height:1.55}
+  .hero{background:linear-gradient(135deg,#1b4f72,#2e75b6);color:#fff;padding:56px 24px 44px}
+  .container{max-width:920px;margin:0 auto;padding:0 24px}
+  h1{margin:0;font-size:30px;letter-spacing:-.01em}
+  .role{opacity:.9;font-size:16px;margin-top:6px}
+  .intro{opacity:.92;font-size:15px;margin-top:16px;max-width:640px}
+  .links{margin-top:18px;display:flex;gap:14px;flex-wrap:wrap}
+  .links a{color:#fff;text-decoration:none;font-size:14px;opacity:.9;border-bottom:1px solid rgba(255,255,255,.4);padding-bottom:1px}
+  .links a:hover{opacity:1}
+  h2{font-size:14px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin:44px 0 16px}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:18px}
+  .card{display:block;text-decoration:none;color:inherit;background:#fff;border:1px solid var(--line);
+        border-radius:14px;padding:22px;transition:transform .12s ease,box-shadow .12s ease}
+  .card:hover{transform:translateY(-3px);box-shadow:0 10px 24px rgba(27,79,114,.12)}
+  .card.soon{opacity:.6;pointer-events:none}
+  .badge{display:inline-block;font-size:11px;font-weight:700;padding:3px 9px;border-radius:20px;
+         background:#eaf3fb;color:var(--accent);margin-bottom:10px}
+  .badge.soon{background:#eef2f7;color:var(--muted)}
+  .code{font-size:12px;font-weight:700;color:var(--accent);letter-spacing:.03em}
+  .card h3{margin:4px 0 6px;font-size:19px}
+  .card p{margin:0;color:var(--muted);font-size:14px}
+  .meta{margin-top:12px;font-size:12px;color:var(--muted)}
+  footer{color:var(--muted);font-size:13px;text-align:center;padding:40px 24px}
+</style>
+</head>
+<body>
+  <div class="hero">
+    <div class="container">
+      <h1>Advait Ganapathy</h1>
+      <div class="role">Teaching Assistant · MIT Sloan School of Management</div>
+      <p class="intro">I build interactive, visual tools that make accounting and finance
+        concepts click — transactions you can see, statements that update as you go.
+        Browse by course below.</p>
+      <div class="links">
+        <a href="mailto:gadvait360@gmail.com">Email</a>
+        <a href="https://github.com/advaitg-phd" target="_blank" rel="noopener">GitHub</a>
+        <!-- add LinkedIn or other links here -->
+      </div>
+    </div>
+  </div>
+
+  <div class="container">
+    <h2>Courses</h2>
+    <div class="grid">
+
+      <a class="card" href="./15516/">
+        <span class="code">15.516</span>
+        <h3>Corporate Financial Accounting</h3>
+        <p>Interactive simulations and tools for the core financial accounting course —
+           starting with a live balance sheet simulator.</p>
+        <div class="meta">Summer 2026 · MIT Sloan</div>
+      </a>
+
+      <div class="card soon">
+        <span class="badge soon">Coming soon</span>
+        <h3>More courses</h3>
+        <p>Additional courses and their tools will appear here over time.</p>
+      </div>
+
+    </div>
+  </div>
+
+  <footer>© <span id="yr"></span> Advait Ganapathy · Built for teaching.</footer>
+  <script>document.getElementById("yr").textContent=new Date().getFullYear();</script>
+</body>
+</html>
