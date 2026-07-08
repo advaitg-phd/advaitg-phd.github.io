@@ -52,11 +52,22 @@
   .is .ni{font-weight:700;border-bottom:2px solid var(--ink)}
   .is .re{font-weight:700;border-bottom:none;background:#eafaf1;border-radius:6px;padding:6px 8px;margin-top:4px}
 
+  /* ledger (Balance Sheet Equation) */
   table{width:100%;border-collapse:collapse;font-size:12px;margin-top:8px}
   th,td{padding:6px 8px;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap}
-  th:first-child,td:first-child,th:nth-child(2),td:nth-child(2){text-align:left}
+  th:first-child,td:first-child,th.txn,td.txn{text-align:left}
   th{color:var(--muted);text-transform:uppercase;font-size:10px;letter-spacing:.02em}
   td.pos{color:#1e7d4b}td.neg{color:#b0281a}
+  /* A = L + SE grouping: faint line between account columns, strong dividers between sections */
+  .acct{border-left:1px solid #eef2f7}
+  .bAsset{border-left:2px solid #c3ccd6 !important}
+  .bLiab{border-left:3px solid var(--ink) !important}     /* the "=" between Assets and L+SE */
+  .bEquity{border-left:2px dashed #9aa7b4 !important}     /* the "+" between L and SE */
+  .grp{text-align:center;font-weight:700;font-size:10px;text-transform:uppercase;letter-spacing:.05em;padding:7px 8px}
+  .grp-asset{background:#eaf3fb;color:#1b4f72}
+  .grp-liab{background:#fdecea;color:#a93226}
+  .grp-equity{background:#eafaf1;color:#1e7d4b}
+  .eqrow td{border-bottom:none;color:var(--muted);font-weight:700;font-size:15px;text-align:center;padding:2px}
   .empty{color:var(--muted);font-style:italic;padding:16px 0;text-align:center}
   .legend{display:flex;gap:14px;font-size:11.5px;color:var(--muted);margin-top:14px;flex-wrap:wrap}
   .dot{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:5px;vertical-align:middle}
@@ -73,8 +84,13 @@
     <select id="txn"></select>
     <div class="desc" id="desc"></div>
 
-    <label for="amt">Amount ($)</label>
+    <label for="amt" id="amtlabel">Amount ($)</label>
     <input id="amt" type="number" min="0" step="100" placeholder="e.g. 5000" value="5000">
+
+    <div id="amt2wrap" style="display:none">
+      <label for="amt2" id="amt2label">Cost of goods sold ($)</label>
+      <input id="amt2" type="number" min="0" step="100" placeholder="e.g. 3000" value="3000">
+    </div>
 
     <button id="post">Post transaction</button>
     <button id="undo" class="btn-secondary">Undo last</button>
@@ -113,6 +129,7 @@
 
     <div class="card">
       <strong>Transaction log (Balance Sheet Equation)</strong>
+      <div class="sub" style="margin:2px 0 0">Assets&nbsp; = &nbsp;Liabilities&nbsp; + &nbsp;Stockholders' Equity</div>
       <div id="logWrap"></div>
     </div>
   </div>
@@ -136,6 +153,7 @@ const ACCOUNTS = {
 };
 
 // ---- preset transactions ----
+// two:true  → shows a second input; f receives (amt1, amt2)
 const TXNS = [
   {id:"issue", name:"Issue stock for cash",
    desc:"Owners invest cash. Cash ↑ and Contributed Capital ↑.",
@@ -158,6 +176,14 @@ const TXNS = [
   {id:"revCredit", name:"Provide service on credit  (Revenue)",
    desc:"Earn revenue, bill the customer. A/R ↑ and Revenue ↑ → lifts Retained Earnings.",
    f:a=>({ar:+a, revenue:+a})},
+  {id:"sellCash", name:"Sell goods for CASH  (price & cost)",
+   desc:"Cash sale of inventory. Cash ↑ and Revenue ↑ by the price; Inventory ↓ and COGS (expense) ↑ by the cost. Gross profit (price − cost) lifts Retained Earnings.",
+   two:true, amt1Label:"Sale price ($)", amt2Label:"Cost of goods sold ($)",
+   f:(price,cost)=>({cash:+price, revenue:+price, inventory:-cost, expense:+cost})},
+  {id:"sellCredit", name:"Sell goods on CREDIT  (price & cost)",
+   desc:"Credit sale of inventory. A/R ↑ and Revenue ↑ by the price; Inventory ↓ and COGS (expense) ↑ by the cost. Gross profit (price − cost) lifts Retained Earnings.",
+   two:true, amt1Label:"Sale price ($)", amt2Label:"Cost of goods sold ($)",
+   f:(price,cost)=>({ar:+price, revenue:+price, inventory:-cost, expense:+cost})},
   {id:"collectAR", name:"Collect from a customer (A/R)",
    desc:"Customer pays their bill. Cash ↑, A/R ↓ — total assets unchanged.",
    f:a=>({cash:+a, ar:-a})},
@@ -194,18 +220,32 @@ function getBal(k){ return k==="retainedEarnings" ? RE() : balances[k]; }
 const sel=document.getElementById("txn");
 TXNS.forEach(t=>{const o=document.createElement("option");o.value=t.id;o.textContent=t.name;sel.appendChild(o);});
 const descEl=document.getElementById("desc");
-function showDesc(){descEl.textContent=TXNS.find(t=>t.id===sel.value).desc;}
-sel.addEventListener("change",showDesc); showDesc();
+function onTxnChange(){
+  const t=TXNS.find(x=>x.id===sel.value);
+  descEl.textContent=t.desc;
+  document.getElementById("amtlabel").textContent = t.amt1Label || "Amount ($)";
+  const w=document.getElementById("amt2wrap");
+  if(t.two){ w.style.display="block"; document.getElementById("amt2label").textContent = t.amt2Label || "Second amount ($)"; }
+  else { w.style.display="none"; }
+}
+sel.addEventListener("change",onTxnChange); onTxnChange();
 document.getElementById("legend").innerHTML =
   [["Assets","#2e86c1"],["Liabilities","#c0392b"],["Equity","#1e8449"]]
   .map(([t,c])=>`<span><span class="dot" style="background:${c}"></span>${t}</span>`).join("");
 
 // actions
 document.getElementById("post").addEventListener("click",()=>{
+  const t=TXNS.find(x=>x.id===sel.value);
   const amt=parseFloat(document.getElementById("amt").value);
   if(!(amt>0)){alert("Enter a positive amount.");return;}
-  const t=TXNS.find(x=>x.id===sel.value);
-  const d=t.f(amt);
+  let d;
+  if(t.two){
+    const amt2=parseFloat(document.getElementById("amt2").value);
+    if(!(amt2>0)){alert("Enter a positive cost of goods sold.");return;}
+    d=t.f(amt,amt2);
+  } else {
+    d=t.f(amt);
+  }
   for(const k in d) balances[k]+=d[k];
   history.push({name:t.name, deltas:{...d}});
   render();
@@ -236,7 +276,6 @@ function render(){
     return `<div class="seg${def}" style="height:${h}px;background:${a.color}" title="${a.label}: ${fmt(v)}">
       <span class="n">${a.label}</span><span class="v">${fmt(v)}${v<0?" (deficit)":""}</span></div>`;
   };
-  // grouped rendering with small group labels
   const renderCol = keys => {
     let html="", lastGroup=null;
     keys.forEach(k=>{
@@ -259,7 +298,7 @@ function render(){
   const rev=balances.revenue, exp=balances.expense, div=balances.dividends, ni=rev-exp;
   document.getElementById("istmt").innerHTML =
     `<div class="rev"><span>Revenue</span><span>${fmt(rev)}</span></div>
-     <div class="exp"><span>Less: Expenses</span><span>(${fmt(exp).replace('$','$')})</span></div>
+     <div class="exp"><span>Less: Expenses (incl. COGS)</span><span>(${fmt(exp)})</span></div>
      <div class="ni"><span>Net income</span><span>${fmt(ni)}</span></div>
      <div class="exp"><span>Less: Dividends</span><span>(${fmt(div)})</span></div>
      <div class="re"><span>Retained Earnings</span><span>${fmt(RE())}</span></div>`;
@@ -272,13 +311,42 @@ function renderLog(assets,liabs,equity){
   const reDelta = d => (d.revenue||0)-(d.expense||0)-(d.dividends||0);
   const wrap=document.getElementById("logWrap");
   if(history.length===0){wrap.innerHTML=`<div class="empty">No transactions yet — post one to begin.</div>`;return;}
-  const cell=v=> v?`<td class="${v>0?'pos':'neg'}">${(v>0?'+':'')+fmt(v)}</td>`:`<td></td>`;
-  const head=`<tr><th>#</th><th>Transaction</th>`+order.map(k=>`<th>${ACCOUNTS[k].label}</th>`).join("")+`</tr>`;
-  const rows=history.map((h,i)=>`<tr><td>${i+1}</td><td>${h.name}</td>`+
-      order.map(k=> cell(k==="retainedEarnings"?reDelta(h.deltas):(h.deltas[k]||0))).join("")+`</tr>`).join("");
-  const bal=`<tr style="font-weight:700;border-top:2px solid var(--ink)"><td></td><td>Balance</td>`+
-      order.map(k=>`<td>${getBal(k)?fmt(getBal(k)):''}</td>`).join("")+`</tr>`;
-  wrap.innerHTML=`<div style="overflow-x:auto"><table>${head}${rows}${bal}</table></div>`;
+
+  // border class marking the section boundaries (A | L | SE)
+  const bcls=k=>{
+    let c="acct";
+    if(k===assets[0])  c+=" bAsset";
+    if(k===liabs[0])   c+=" bLiab";    // strong "=" divider
+    if(k===equity[0])  c+=" bEquity";  // dashed "+" divider
+    return c;
+  };
+  const cell=(k,v)=>`<td class="${bcls(k)} ${v>0?'pos':(v<0?'neg':'')}">${v?((v>0?'+':'')+fmt(v)):''}</td>`;
+
+  // grouped two-row header
+  const groupHdr =
+    `<tr>
+      <th rowspan="2">#</th>
+      <th rowspan="2" class="txn">Transaction</th>
+      <th colspan="${assets.length}" class="grp grp-asset bAsset">Assets</th>
+      <th colspan="${liabs.length}"  class="grp grp-liab bLiab">Liabilities</th>
+      <th colspan="${equity.length}" class="grp grp-equity bEquity">Stockholders' Equity</th>
+    </tr>
+    <tr>${order.map(k=>`<th class="${bcls(k)}">${ACCOUNTS[k].label}</th>`).join("")}</tr>`;
+
+  // equation reminder row spanning the three sections
+  const eqRow =
+    `<tr class="eqrow"><td></td><td></td>
+      <td colspan="${assets.length}" class="bAsset">A</td>
+      <td colspan="${liabs.length}"  class="bLiab">= &nbsp; L</td>
+      <td colspan="${equity.length}" class="bEquity">+ &nbsp; SE</td></tr>`;
+
+  const rows=history.map((h,i)=>`<tr><td>${i+1}</td><td class="txn">${h.name}</td>`+
+      order.map(k=> cell(k, k==="retainedEarnings"?reDelta(h.deltas):(h.deltas[k]||0))).join("")+`</tr>`).join("");
+
+  const bal=`<tr style="font-weight:700;border-top:2px solid var(--ink)"><td></td><td class="txn">Balance</td>`+
+      order.map(k=>`<td class="${bcls(k)}">${getBal(k)?fmt(getBal(k)):''}</td>`).join("")+`</tr>`;
+
+  wrap.innerHTML=`<div style="overflow-x:auto"><table>${groupHdr}${eqRow}${rows}${bal}</table></div>`;
 }
 
 init();
